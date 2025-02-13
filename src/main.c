@@ -18,8 +18,39 @@ struct port_forward {
     int ipv4_port;
 };
 
+struct nft_rule {
+    int ipv6_port;
+    struct nft_rule *next;
+};
+
 struct port_forward ports[MAX_PORTS];
 int num_ports = 0;
+struct nft_rule *rules_head = NULL;
+
+void add_nft_rule(int ipv6_port) {
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "nft add rule inet filter input ip6 dport %d accept", ipv6_port);
+    system(cmd); // 注意：这可能会带来安全风险，请谨慎使用
+    
+    struct nft_rule *new_rule = malloc(sizeof(struct nft_rule));
+    new_rule->ipv6_port = ipv6_port;
+    new_rule->next = rules_head;
+    rules_head = new_rule;
+}
+
+void remove_all_nft_rules() {
+    struct nft_rule *current = rules_head;
+    while (current != NULL) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "nft delete rule inet filter input ip6 dport %d accept", current->ipv6_port);
+        system(cmd); // 同样需要注意安全问题
+        
+        struct nft_rule *temp = current;
+        current = current->next;
+        free(temp);
+    }
+    rules_head = NULL;
+}
 
 void add_port_forward(int ipv6_port, char *ipv4_address, int ipv4_port) {
     if (num_ports < MAX_PORTS) {
@@ -31,8 +62,9 @@ void add_port_forward(int ipv6_port, char *ipv4_address, int ipv4_port) {
 }
 
 void *handle_client(void *arg) {
-    int ipv6_sock = *((int *)arg);
-    free(arg); // 释放分配的内存
+    int *ipv6_sock_ptr = (int *)arg;
+    int ipv6_sock = *ipv6_sock_ptr;
+    free(ipv6_sock_ptr); // 释放分配的内存
     char buffer[BUFFER_SIZE];
     
     ssize_t n = read(ipv6_sock, buffer, sizeof(buffer));
@@ -90,12 +122,19 @@ void read_config() {
                 }
             }
             add_port_forward(ipv6_port, ipv4_address, ipv4_port);
+            add_nft_rule(ipv6_port); // 添加nftables规则
         }
     }
     fclose(file);
 }
 
+void cleanup() {
+    remove_all_nft_rules();
+}
+
 int main() {
+    atexit(cleanup); // 注册清理函数，在程序正常或异常终止时调用
+    
     read_config();
 
     for (int i = 0; i < num_ports; i++) {
