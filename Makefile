@@ -31,7 +31,22 @@ define Package/$(PKG_NAME)/install
     $(INSTALL_DIR) $(1)/usr/bin
     $(INSTALL_BIN) $(PKG_BUILD_DIR)/port_forward $(1)/usr/bin/
     $(INSTALL_DIR) $(1)/etc/init.d
-    $(INSTALL_BIN) ./files/postinst $(1)/etc/init.d/port_forward
+    # 生成init脚本
+    echo '#!/bin/sh /etc/rc.common' > $(1)/etc/init.d/port_forward
+    echo 'START=99' >> $(1)/etc/init.d/port_forward
+    echo 'STOP=10' >> $(1)/etc/init.d/port_forward
+    echo 'start() {' >> $(1)/etc/init.d/port_forward
+    echo '    echo "Starting port forward..."' >> $(1)/etc/init.d/port_forward
+    echo '    /usr/bin/port_forward &' >> $(1)/etc/init.d/port_forward
+    echo '}' >> $(1)/etc/init.d/port_forward
+    echo 'stop() {' >> $(1)/etc/init.d/port_forward
+    echo '    echo "Stopping port forward..."' >> $(1)/etc/init.d/port_forward
+    echo '    killall port_forward' >> $(1)/etc/init.d/port_forward
+    echo '}' >> $(1)/etc/init.d/port_forward
+    # 设置权限
+    chmod +x $(1)/etc/init.d/port_forward
+    # 启用服务
+    $(1)/etc/init.d/port_forward enable
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
