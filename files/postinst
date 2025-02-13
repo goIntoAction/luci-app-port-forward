@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# postinst script
+
+# Create the init script
+cat << 'EOF' > /etc/init.d/port_forward
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+start() {
+    echo "Starting port forward..."
+    /usr/bin/port_forward &
+}
+
+stop() {
+    echo "Stopping port forward..."
+    killall port_forward
+}
+EOF
+
+# Make the init script executable
+chmod +x /etc/init.d/port_forward
+
+# Enable and start the service
+/etc/init.d/port_forward enable
+/etc/init.d/port_forward start
